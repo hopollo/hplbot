@@ -10,28 +10,59 @@ var options = {
 	},
 	identity: {
 		username: 'HoPoBot',
-		password: '???????????????????????????????????????'
+		password: '??????????????????'
 	},
 	channels: ['hopollo']
 };
 
+var timerOptions = {
+    queue: [],
+    position: {
+        index: 0
+    },
+    defaultDelay: {
+        defaultDelay: 3000
+    }
+}
+
 var client = new tmi.client(options);
+//var timer = new tmi.timer(timerOptions);
+
 client.connect();
 
 client.on('connected', function (adress, port) {
-	console.log('Address: ' + adress + ':' + port);
+    console.log('Address: ' + adress + ':' + port);
+    console.log('Info : Timers started');
+    timer();
 });
 
-client.on('chat', function (channel, userstate, message) {
+function timer() {
+    function addTimer(command, delay) {
+        var fn = command;
+        var delay = delay * 60000;
+        setInterval(command, delay);
+    }
+
+    function social() {
+        client.action("hopollo", 'Retrouvez moi sur les réseaux ► https://www.twitter.com/HoPolloTV • https://www.youtube.com/HoPollo (!last) • https://www.facebook.com/HoPollo •');
+    }
+
+    addTimer(social, 15);
+}
+
+client.on('chat', function (channel, userstate, message, self) {
     var user = userstate['username'];
-    var rank = ''; //TODO (hopollo): Add user grade detection (sub, mod, follower, owner, etc)
+    var rank = userstate['badges']; //TODO (hopollo): Add user grade detection (sub, mod, follower, owner, etc)
     var blackListedNames = ['hplbot', 'streamelements', 'hnlbot'];
     var cooldown = 60;
     var currentCooldown = 0;
 
-    if (user = self) { return; }
+    if (self) { return;}
     for (var i = 0, len = blackListedNames.length; i < len; i++) { if (user.includes(blackListedNames[i])) { return; } }
 
+    function log(message) {
+        console.log(message);
+    }
 
     function send(message) {
         client.action(channel, message);
@@ -42,14 +73,11 @@ client.on('chat', function (channel, userstate, message) {
     }
 
     function whisper(user, message) {
+        var username = user;
         client.whisper(username, message);
     }
 
-    function addTimer(command, time) {
-        var command = fn;
-        var delay = timer * 60000;
-        timer.queue.push(fn, delay);
-    }
+    log('user : ' + user + '(' + rank + ')');
 
     // SALUTATION
 
@@ -61,9 +89,14 @@ client.on('chat', function (channel, userstate, message) {
 		}
 	}
 	
-	
 	// TROLLING
-	var trolling = ['Kappa', 'kappapride', 'monkaS', 'lul', 'coolstorybob'];
+    var trolling = ['Kappa', 'kappapride', 'monkaS', 'lul', 'coolstorybob'];
+
+    for (var i = 0, len = trolling.length; i < len; i++) {
+        if (message.includes(trolling[i])) {
+            send(trolling[i]);
+        }
+    }
 	
 	// CONFIG
 	var configCommand = '!config';
@@ -127,8 +160,8 @@ client.on('chat', function (channel, userstate, message) {
         client.timeout(channel, user, 30)
         reply('Timeout : ' + user + '(link violation)');
     }
-    	
-	//StreamStatus
+
+	// StreamStatus
 	var streamCommand = ['!setgame','!settitle','!addfilter','!delfilter'];
 	
 	for (var i=0, len=streamCommand.length; i < len; i++) {
@@ -159,17 +192,23 @@ client.on('chat', function (channel, userstate, message) {
 	
 	//Social
     var socialCommand = '!social';
-    if (message.includes(socialCommand) || user != self) {
-		social();
-	}
-	
-    function social() {
-        send('Retrouvez moi sur les réseaux ► https://www.twitter.com/HoPolloTV • https://www.youtube.com/HoPollo (!last) • https://www.facebook.com/HoPollo •');
+    var socialKeywords = ['facebook', 'youtube', 'twitter'];
+
+    for (var i = 0, len = socialKeywords.length; i < len; i++) {
+        if (message.includes(socialCommand) || message.includes(socialKeywords[i])) {
+            send('Retrouvez moi sur les réseaux ► https://www.twitter.com/HoPolloTV • https://www.youtube.com/HoPollo (!last) • https://www.facebook.com/HoPollo •');
+        }
     }
 
     var lastCommand = '!last';
     if (message.includes(lastCommand)) {
         //TODO (hopollo): return links from lastest youtube video (+ latest twitch vod)
+        return;
+    }
+
+    var hostCommand = '!host';
+    if (message.includes(hostCommand)) {
+        whisper(user, 'Pour host HoPollo rdv sur : twitch.tv/' + user + ' et écrire (ou copier/coller) dans ton tchat : /host hopollo');
         return;
     }
 
@@ -192,8 +231,4 @@ client.on('chat', function (channel, userstate, message) {
         // TOOD(hopollo) : work on this when sub button is enabled
         send('SUB : ' + user + '(' + method + ')');
     });
-	
-	//TIMERS
-    addTimer(social, 15);
-
 });
