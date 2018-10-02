@@ -10,7 +10,7 @@ var options = {
 	},
 	identity: {
 		username: 'HoPoBot',
-		password: 'oauth:zuaaqh342in5bxkytsc218ni62c3t0'
+		password: '???????'
 	},
 	channels: ['hopollo']
 };
