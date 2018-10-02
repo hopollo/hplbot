@@ -45,10 +45,14 @@ function timer() {
     }
 
     function social() {
-        client.action("hopollo", 'Retrouvez moi sur les réseaux ► https://www.twitter.com/HoPolloTV • https://www.youtube.com/HoPollo (!last) • https://www.facebook.com/HoPollo •');
+        client.action('hopollo', 'Retrouvez moi sur les réseaux ► https://www.twitter.com/HoPolloTV • https://www.youtube.com/HoPollo (!last) • https://www.facebook.com/HoPollo •');
+    }
+    function song() {
+        client.action('hopollo', 'Utilisez !song pour connaitre son titre en temps réel :)');
     }
 
     addTimer(social, 15);
+    addTimer(song, 20);
 }
 
 client.on('chat', function (channel, userstate, message, self) {
@@ -79,7 +83,23 @@ client.on('chat', function (channel, userstate, message, self) {
         client.whisper(username, message);
     }
 
-    //log('user : ' + user + '(' + String(rank) + ')');
+    function customApi(url){
+        //TODO(hopollo) : CREATE THE FUNCTION TO READ FROM LINKS
+    }
+
+
+    // ISSUE : commands !something are not detected by the regex code
+
+
+    // SONG
+    var songKeywords = ['!song', 'musique'];
+    for (var i = 0, len = songKeywords.length; i < len; i++){
+        var matchSongKeywords = new RegExp("\\b" + songKeywords[i] + "\\b").test(message);
+        if (matchSongKeywords) {
+            log('Matching word/cmd : ' + songKeywords[i]);
+            //TODO(Hopollo): Add function customApi(UrlOfLastFm)
+        }
+    }
 
     // SALUTATION
 
