@@ -10,7 +10,7 @@ var options = {
 	},
 	identity: {
 		username: 'HoPoBot',
-		password: '??????????????????'
+		password: 'oauth:zuaaqh342in5bxkytsc218ni62c3t0'
 	},
 	channels: ['hopollo']
 };
@@ -56,12 +56,15 @@ client.on('chat', function (channel, userstate, message, self) {
     var blackListedNames = ['hplbot', 'streamelements', 'hnlbot'];
     var cooldown = 60;
     var currentCooldown = 0;
+    var debug = true;
 
     if (self) { return;}
     for (var i = 0, len = blackListedNames.length; i < len; i++) { if (user.includes(blackListedNames[i])) { return; } }
 
     function log(message) {
-        console.log(message);
+        if (debug) {
+            console.log(message);
+        }
     }
 
     function send(message) {
@@ -77,45 +80,47 @@ client.on('chat', function (channel, userstate, message, self) {
         client.whisper(username, message);
     }
 
-    log('user : ' + user + '(' + rank + ')');
+    //log('user : ' + user + '(' + String(rank) + ')');
 
     // SALUTATION
 
-	var salutation = ['bonjour', 'hey', 'salut', 'HeyGuys', 'slt', 'coucou'];
-	for(var i=0; i < salutation.length; i++) {
-		if (message.includes(salutation[i])) {
-			reply(user, ' HeyGuys');
+	var salutationKeywords = ['bonjour', 'hey', 'salut', 'HeyGuys', 'slt', 'yo','coucou'];
+    for (var i = 0; i < salutationKeywords.length; i++) {
+        var matchSalutationKeywords = new RegExp("\\b" + salutationKeywords[i] + "\\b").test(message);
+        if (matchSalutationKeywords) {
+            log('Matching word : ' + matchSalutationKeywords);
+            reply(user + ' HeyGuys');
 			return;
 		}
 	}
 	
 	// TROLLING
-    var trolling = ['Kappa', 'kappapride', 'monkaS', 'lul', 'coolstorybob'];
-
-    for (var i = 0, len = trolling.length; i < len; i++) {
-        if (message.includes(trolling[i])) {
-            send(trolling[i]);
+    var trollingKeywords = ['Kappa', 'KappaPride', 'monkaS', 'LuL', 'Jebaited','TriHard','CoolStoryBob','cmonBruh','BibleThump','<3','DansGame'];
+    for (var i = 0, len = trollingKeywords.length; i < len; i++) {
+        var matchTrollingKeywords = new RegExp("\\b" + trollingKeywords[i] + "\\b").test(message);
+        if (matchTrollingKeywords) {
+            log('Matching Emote : ' + matchTrollingKeywords[i]);
+            send(trollingKeywords[i]);
+            return;
         }
     }
 	
 	// CONFIG
-	var configCommand = '!config';
-	var configKeywords = ['comme pc', 'ton setup', 'ta config', 'comme setup', 'ton casque', 'comme casque', 'ton clavier', 'ta cg', 'comme cg', 'carte graphique', 'mic', 'ton micro', 'comme micro', 'matos', 'headset', 'ordi', 'équipements', 'équipement', 'écran', 'ecran', 'ecrans', 'écrans'];
-	
+	var configKeywords = ['!config','comme pc', 'ton setup', 'ta config', 'comme setup', 'ton casque', 'comme casque', 'ton clavier', 'ta cg', 'comme cg', 'carte graphique', 'mic', 'ton micro', 'comme micro', 'matos', 'headset', 'ordi', 'équipements', 'équipement', 'écran', 'ecran', 'ecrans', 'écrans'];
 	for(var i=0, len=configKeywords.length; i < len; i++){
-		if (message.includes(configCommand) || message.includes(configKeywords[i])) {
+        var matchConfigKeywords = new RegExp("\\b" + configKeywords[i] + "\\b").test(message); 
+        if (matchConfigKeywords) {
+            log('Matching word/cmd :' + configKeywords[i]);
 			send('Config PC ► goo.gl/LNaxad ou en description, pour les configs jeux utilise !(nomdujeu)config (ex: !rustconfig)');
 			return;
 		}
 	}
 	
 	// VOCAL Discord, Curse
-	// REMARK(hopollo) : Surprisingly message.search ne trouve pas !config dans les keyword, séparation obligatoire ??
-	var vocalCommand = '!discord';
-	var vocalKeywords = ['vocal', 'discord', 'teamspeak', 'mumble', 'curse', 'skype'];
-	
-	for(var i=0, len=vocalKeywords.length; i < len; i++) {
-		if (message.includes(vocalCommand) || message.includes(vocalKeywords[i])) {
+	var vocalKeywords = ['!discord','vocal', 'discord', 'teamspeak', 'mumble', 'curse', 'skype'];
+    for (var i = 0, len = vocalKeywords.length; i < len; i++) {
+        var matchVocalKeywords = new RegExp("\\b" + vocalKeywords[i] + "\\b").test(message);
+		if (matchVocalKeywords) {
             send('Serveur Discord ► goo.gl/uRqQn0 (conditions : Mature, Bon micro, 0 bruit de fond)');
 			return;
 		}
@@ -123,9 +128,8 @@ client.on('chat', function (channel, userstate, message, self) {
 	
 	//Background
 	var backgroundCommand = '!background';
-	
     if (message.includes(backgroundCommand)) {
-        send('Mon background ► bit.ly/2a4MRiY');
+        reply(user + ' Mon background ► bit.ly/2a4MRiY');
 		return;
     }
 
@@ -164,12 +168,14 @@ client.on('chat', function (channel, userstate, message, self) {
 	// StreamStatus
 	var streamCommand = ['!setgame','!settitle','!addfilter','!delfilter'];
 	
-	for (var i=0, len=streamCommand.length; i < len; i++) {
-		if(message.includes(streamCommand[i])){
+    for (var i = 0, len = streamCommand.length; i < len; i++) {
+        var matchStreamCommand = new RegExp("\\b" + message + "\\b").test(streamCommand[i]);
+        // REMARK (hopollo): Should stay in this order to make sure the command is on a new line
+		if(matchStreamCommand){
 			var e = streamCommand[i];
 			var userRank = userstate['user-type']; // REMARK (hopollo) : return null on broadcaster
 			
-			console.log('result ' + user + ' ' + userRank + ' cmd ' + e);
+			log('Edit cmd : ' + user + '(' + userRank + ') -> ' + e);
             editChannelInfo(command);
 		}
 	}
@@ -191,11 +197,11 @@ client.on('chat', function (channel, userstate, message, self) {
 	}
 	
 	//Social
-    var socialCommand = '!social';
-    var socialKeywords = ['facebook', 'youtube', 'twitter'];
-
+    var socialKeywords = ['!social','!facebook','!twitter','!youtube','facebook', 'youtube', 'twitter'];
     for (var i = 0, len = socialKeywords.length; i < len; i++) {
-        if (message.includes(socialCommand) || message.includes(socialKeywords[i])) {
+        var matchSocialKeywords = new RegExp("\\b" + socialKeywords[i] + "\\b").test(message);
+        if (matchSocialKeywords) {
+            log('Matching word/cmd: ' + matchSocialKeywords[i]);
             send('Retrouvez moi sur les réseaux ► https://www.twitter.com/HoPolloTV • https://www.youtube.com/HoPollo (!last) • https://www.facebook.com/HoPollo •');
         }
     }
@@ -213,6 +219,7 @@ client.on('chat', function (channel, userstate, message, self) {
     }
 
     // Events
+    // TODO(hopollo) : MOVE THIS PART TO THE PROPER SECTION (OUT OF MESSAGE POST EVENT)
     // host
     client.on('hosted', function (channel, username, viewers, autohost) {
         var viewersLimit = 4;
