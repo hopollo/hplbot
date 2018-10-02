@@ -1,3 +1,4 @@
+require('dotenv').config();
 var tmi = require('tmi.js');
 
 var options = {
@@ -10,7 +11,7 @@ var options = {
 	},
 	identity: {
 		username: 'HoPoBot',
-		password: '???????'
+        password: process.env.AUTH_KEY
 	},
 	channels: ['hopollo']
 };
@@ -53,9 +54,7 @@ function timer() {
 client.on('chat', function (channel, userstate, message, self) {
     var user = userstate['username'];
     var rank = userstate['badges']; //TODO (hopollo): Add user grade detection (sub, mod, follower, owner, etc)
-    var blackListedNames = ['hplbot', 'streamelements', 'hnlbot'];
-    var cooldown = 60;
-    var currentCooldown = 0;
+    var blackListedNames = ['hplbot', 'streamelements', 'hnlbot', 'moobot', 'wizebot'];
     var debug = true;
 
     if (self) { return;}
@@ -88,14 +87,14 @@ client.on('chat', function (channel, userstate, message, self) {
     for (var i = 0; i < salutationKeywords.length; i++) {
         var matchSalutationKeywords = new RegExp("\\b" + salutationKeywords[i] + "\\b").test(message);
         if (matchSalutationKeywords) {
-            log('Matching word : ' + matchSalutationKeywords);
+            log('Matching word : ' + matchSalutationKeywords[i]);
             reply(user + ' HeyGuys');
 			return;
 		}
 	}
 	
 	// TROLLING
-    var trollingKeywords = ['Kappa', 'KappaPride', 'monkaS', 'LuL', 'Jebaited','TriHard','CoolStoryBob','cmonBruh','BibleThump','<3','DansGame'];
+    var trollingKeywords = ['KappaPride', 'monkaS', 'LuL', 'Jebaited','TriHard','CoolStoryBob','cmonBruh','BibleThump','<3','DansGame'];
     for (var i = 0, len = trollingKeywords.length; i < len; i++) {
         var matchTrollingKeywords = new RegExp("\\b" + trollingKeywords[i] + "\\b").test(message);
         if (matchTrollingKeywords) {
@@ -107,7 +106,7 @@ client.on('chat', function (channel, userstate, message, self) {
 	
 	// CONFIG
 	var configKeywords = ['!config','comme pc', 'ton setup', 'ta config', 'comme setup', 'ton casque', 'comme casque', 'ton clavier', 'ta cg', 'comme cg', 'carte graphique', 'mic', 'ton micro', 'comme micro', 'matos', 'headset', 'ordi', 'équipements', 'équipement', 'écran', 'ecran', 'ecrans', 'écrans'];
-	for(var i=0, len=configKeywords.length; i < len; i++){
+	for(var i = 0, len = configKeywords.length; i < len; i++){
         var matchConfigKeywords = new RegExp("\\b" + configKeywords[i] + "\\b").test(message); 
         if (matchConfigKeywords) {
             log('Matching word/cmd :' + configKeywords[i]);
