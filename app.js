@@ -1,5 +1,6 @@
 require('dotenv').config();
 var tmi = require('tmi.js');
+var fetch = require("node-fetch");
 
 var options = {
 	options: {
@@ -80,15 +81,31 @@ client.on('chat', function (channel, userstate, message, self) {
         client.whisper(user, message);
     }
 
-    function customApi(url){
-        //TODO(hopollo) : CREATE THE FUNCTION TO READ FROM LINKS
-    }
+    let apiRes = '';
+    function customApi(url) {
+        var client = channel.split('#');
+        // REMARK(Hopollo) : Should be a sexier way to get only the channelname without # before
+        var url = url + client[1];
+        console.log(`API CALL : ${url}`);
 
+       fetch(url)
+            .then(res => res.json())
+            .then(data => returnApiRes(data))
+            //ISSUE (hopollo) : unable to 'export' the response as a variable in order to custom the tchat answer for each command
+            .catch(err => log(`Oops (api) : ${err}`))
+
+        function returnApiRes(data) {
+            apiRes = data;
+            return apiRes;
+        }
+    }
+    
     // SONG
     const songKeywords =  /(^|\W)(!song|musique|song|zik|morceaux)($|\W)/i;
     if (songKeywords.test(message)) {
-            log(`Matching word/cmd : ${songKeywords}`);
-            //TODO(Hopollo): Add function customApi(UrlOfLastFm)
+        log(`Matching word/cmd : ${songKeywords}`);
+        //TODO(Hopollo): Add function customApi(UrlOfLastFm)
+        customApi('https://4head.xyz/lastfm/?name=');
     }
 
     // SALUTATION
@@ -116,13 +133,13 @@ client.on('chat', function (channel, userstate, message, self) {
         send('Serveur Discord ► goo.gl/uRqQn0 (conditions : Mature, Bon micro, 0 bruit de fond)');
     }
 	
-	//Background
+	// Background
 	const backgroundCommand = '!background';
     if (message.includes(backgroundCommand)) {
         reply('Mon background ► bit.ly/2a4MRiY');
     }
 
-    //Link detection
+    // Link detection
     const linkWhitelist = ["https://clips.twitch.tv/","https://www.youtube.com/watch?v="];
     for (var i = 0, len = linkWhitelist.length; i < len; i++) {
         if (message.includes(linkWhitelist[i])) {
@@ -148,7 +165,6 @@ client.on('chat', function (channel, userstate, message, self) {
 
 	// StreamStatus
 	const streamCommand = /(^|\W)(!setgame|!settitle|!addfilter|!delfilter)($|\W)/i;
-    // REMARK (hopollo): Should stay in this order to make sure the command is on a new line
     if(streamCommand.test(message)){
         var userRank = userstate['user-type']; // REMARK (hopollo) : return null on broadcaster
         var message = message.split(' ');
@@ -188,11 +204,37 @@ client.on('chat', function (channel, userstate, message, self) {
         }
     }
     
-    //Stats
+    // Stats
     const statsCommands = ['!viewers','!subs','!follows','!views'];
-    //TODO(hopollo) : Implement those API when customAPI is done;
+    for (var i=0, len=statsCommands.length; i < len; i++){
+        if(message.includes(statsCommands[i])) {
+            switch(statsCommands[i]) {
+                case '!viewers':
+                    var viewers = customApi('https://decapi.me/twitch/viewercount/');
+                    log(`Viewers (actuels) : ${viewers}`);
+                    break;
+                case '!subs':
+                    customApi('https://decapi.me/twitch/subcount/');
+                    log(`Subs (total) : ${subs}`);
+                    break;
+                case '!follows':
+                    var follows = customApi('');
+                    log(`Follows (total) : ${follows}`);
+                    break;
+                case '!views':
+                    var views = customApi('https://decapi.me/twitch/total_views/');
+                    setTimeout(display, 2000);
+                    function display() {
+                        send(`Vues (totales) : ${apiRes}`);
+                    }
+                    break;
+                default:
+                    log('default');
+            }
+        }
+    }
 	
-	//Social
+	// Socials
     const socialKeywords = /(^|\W)(!social|!facebook|!twitter|!youtube|facebook|twitter)($|\W)/i;
     if (socialKeywords.test(message)) {
         log(`Matching word/cmd ${socialKeywords}`);
