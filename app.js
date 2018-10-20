@@ -81,31 +81,24 @@ client.on('chat', function (channel, userstate, message, self) {
         client.whisper(user, message);
     }
 
-    let apiRes = '';
-    function customApi(url) {
+    function customApi(url, desc, token) {
         var client = channel.split('#');
         // REMARK(Hopollo) : Should be a sexier way to get only the channelname without # before
         var url = url + client[1];
+        var token = ''; // TODO(Hopollo) : Impletement token headers 
         console.log(`API CALL : ${url}`);
 
        fetch(url)
-            .then(res => res.json())
-            .then(data => returnApiRes(data))
-            //ISSUE (hopollo) : unable to 'export' the response as a variable in order to custom the tchat answer for each command
+            .then(res => res.text())
+            .then(data => send(desc + data))
             .catch(err => log(`Oops (api) : ${err}`))
-
-        function returnApiRes(data) {
-            apiRes = data;
-            return apiRes;
-        }
     }
     
     // SONG
     const songKeywords =  /(^|\W)(!song|musique|song|zik|morceaux)($|\W)/i;
     if (songKeywords.test(message)) {
         log(`Matching word/cmd : ${songKeywords}`);
-        //TODO(Hopollo): Add function customApi(UrlOfLastFm)
-        customApi('https://4head.xyz/lastfm/?name=');
+        customApi('https://4head.xyz/lastfm/?name=', 'Musique actuelle ► ');
     }
 
     // SALUTATION
@@ -210,23 +203,16 @@ client.on('chat', function (channel, userstate, message, self) {
         if(message.includes(statsCommands[i])) {
             switch(statsCommands[i]) {
                 case '!viewers':
-                    var viewers = customApi('https://decapi.me/twitch/viewercount/');
-                    log(`Viewers (actuels) : ${viewers}`);
+                    customApi('https://decapi.me/twitch/viewercount/', 'Viewers (actuels) ► ');
                     break;
                 case '!subs':
-                    customApi('https://decapi.me/twitch/subcount/');
-                    log(`Subs (total) : ${subs}`);
+                    customApi('https://decapi.me/twitch/subcount/','ADDTOKENHERE', 'Subs (total) ► ');
                     break;
                 case '!follows':
-                    var follows = customApi('');
-                    log(`Follows (total) : ${follows}`);
+                    customApi('','Follows (total) ► ');
                     break;
                 case '!views':
-                    var views = customApi('https://decapi.me/twitch/total_views/');
-                    setTimeout(display, 2000);
-                    function display() {
-                        send(`Vues (totales) : ${apiRes}`);
-                    }
+                    customApi('https://decapi.me/twitch/total_views/', 'Vues (totales) ► ');
                     break;
                 default:
                     log('default');
