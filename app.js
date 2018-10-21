@@ -1,4 +1,5 @@
-require('dotenv').config();
+var dotenv = require('dotenv');
+dotenv.load();
 var tmi = require('tmi.js');
 var fetch = require("node-fetch");
 
@@ -13,28 +14,24 @@ var options = {
 	identity: {
 		username: 'HoPoBot',
         password: process.env.AUTH_KEY
-	},
+    },
 	channels: ['hopollo']
 };
 
-var timerOptions = {
-    queue: [],
-    position: {
-        index: 0
-    },
-    defaultDelay: {
-        defaultDelay: 3000
-    }
-}
-
 var client = new tmi.client(options);
-
+getData();
 client.connect();
 
 client.on('connected', function (adress, port) {
-    console.log('Address: ' + adress + ':' + port);
-    console.log('Info : Timers started');
+    this.log.info(`Address : ${adress} : ${port}`);
+    this.log.info('Timers started');
+    
     timer();
+ 
+});
+
+client.on('disconnected', function(reason){
+    client.action('hopollo',`Disconencted : ${reason}`);
 });
 
 function timer() {
@@ -45,19 +42,39 @@ function timer() {
     }
 
     function social() {
-        client.action('hopollo', 'Retrouvez moi sur les réseaux ► https://www.twitter.com/HoPolloTV • https://www.youtube.com/HoPollo (!last) • https://www.facebook.com/HoPollo •');
+        client.action(channel, 'Retrouvez moi sur les réseaux ► https://www.twitter.com/HoPolloTV • https://www.youtube.com/HoPollo (!last) • https://www.facebook.com/HoPollo •');
     }
     function song() {
-        client.action('hopollo', 'Utilisez !song pour connaitre son titre en temps réel :)');
+        client.action(channel, 'Utilisez !song pour connaitre son titre en temps réel :)');
     }
 
     addTimer(social, 15);
     addTimer(song, 20);
 }
 
+function getData() {
+    client.api({
+        url : `https://api.twitch.tv/helix/users?login=hopollo`,
+        headers: {
+            'Client-ID': process.env.TWITCH_CLIENT_ID
+        }
+    }, (err, res, body) => {
+        if (!err) {
+            broadcasterID = body.data[0].id;
+            broadcasterType = body.data[0].broadcaster_type;
+            broadcasterLogin = body.data[0].login;
+            broadcasterDisplayName = body.data[0].display_name;
+        }
+        return;
+    });
+}
+
 client.on('chat', function (channel, userstate, message, self) {
-    var user = userstate['username'];
-    var rank = userstate['badges']; //TODO (hopollo): Add user grade detection (sub, mod, follower, owner, etc)
+    var channelName = channel.replace('#','');
+    var channelType = broadcasterType;
+    //console.log(userstate);
+    var user = userstate['display-name'];
+    var rank = userstate['badges'];
     var blackListedNames = /(^|\W)(hplbot|streamelements|hnlbot|moobot|wizebot)($|\W)/i;
     var debug = true;
 
@@ -77,32 +94,52 @@ client.on('chat', function (channel, userstate, message, self) {
         client.action(channel, `${user} ${message}`);
     }
 
-    function whisper(user, message) {
-        client.whisper(user, message);
+    function whisper(message) {
+        client.whisper(`${user} ${message}`);
     }
 
-    function customApi(url, desc, token) {
-        var client = channel.split('#');
-        // REMARK(Hopollo) : Should be a sexier way to get only the channelname without # before
-        var url = url + client[1];
-        var token = ''; // TODO(Hopollo) : Impletement token headers 
-        console.log(`API CALL : ${url}`);
+    function customApi(url, desc, source) {
 
-       fetch(url)
+        switch(source)  {
+            case 'twitch':
+                twitchApiCall(url);
+                break;
+            default:
+                defaultApiCall(url);
+        }
+
+        function twitchApiCall() {
+            log(`Twitch API Call : ${url}`);
+            var twitchToken = process.env.TWITCH_CLIENT_ID;
+            var options = {
+                headers: {
+                    'Client-ID' : twitchToken
+                }
+            };
+            fetch(url, options)
             .then(res => res.text())
-            .then(data => send(desc + data))
-            .catch(err => log(`Oops (api) : ${err}`))
+            .then(data => {  send(`${desc} ${data}`); })
+            .catch(err => log(err))
+        }
+
+        function defaultApiCall() {
+            log(`API Call : ${url}`);
+            fetch(url, options)
+            .then(res => res.text())
+            .then(data => { send(`${desc} ${data}`); })
+            .catch(err => log(err))
+        }
     }
-    
+
     // SONG
-    const songKeywords =  /(^|\W)(!song|musique|song|zik|morceaux)($|\W)/i;
+    const songKeywords =  /(^|\W)(!song|musique|song|zik|morceaux|titre|artiste|artist)($|\W)/i;
     if (songKeywords.test(message)) {
         log(`Matching word/cmd : ${songKeywords}`);
-        customApi('https://4head.xyz/lastfm/?name=', 'Musique actuelle ► ');
+        customApi(`https://4head.xyz/lastfm/?name=${channelName}`, 'Musique actuelle ► ');
     }
 
     // SALUTATION
-    const salutationKeywords = /(^|\W)(yo|salut|bonjour)($|\W)/i;
+    const salutationKeywords = /(^|\W)(yo|salut|bonjour|coucou|bjr|hoi)($|\W)/i;
     if(salutationKeywords.test(message)) {
         reply(`HeyGuys`);
     }
@@ -132,8 +169,27 @@ client.on('chat', function (channel, userstate, message, self) {
         reply('Mon background ► bit.ly/2a4MRiY');
     }
 
+    // Clip creation
+    const clipCommand = '!clip';
+    if(message.includes(clipCommand)) {
+        var title = message.split(`${clipCommand} `);
+        createClip(title[1], user);
+    }
+
+    function createClip(title, author) {
+        var titleMaxLenght = 100;
+        var template = `${title} (${user})`;
+        if(template.length > titleMaxLenght) {
+            reply(`Titre de clip trop long ! ${template.length}/100`);
+        } else {
+            log(`Clip : ${user} - ${template} (${template.length}/100)`);
+
+            customApi(`https://api.twitch.tv/helix/clips?broadcaster_id=${channelID}`, '');
+        }
+    }
+
     // Link detection
-    const linkWhitelist = ["https://clips.twitch.tv/","https://www.youtube.com/watch?v="];
+    const linkWhitelist = ["https://clips.twitch.tv/", "https://www.youtube.com/watch?v="];
     for (var i = 0, len = linkWhitelist.length; i < len; i++) {
         if (message.includes(linkWhitelist[i])) {
             var source = linkWhitelist.indexOf(linkWhitelist[i]);
@@ -196,23 +252,26 @@ client.on('chat', function (channel, userstate, message, self) {
                 log('Default EditChannelInfo');
         }
     }
-    
+
     // Stats
-    const statsCommands = ['!viewers','!subs','!follows','!views'];
+    const statsCommands = ['!viewers','!subs','!follows','!views','!followers'];
     for (var i=0, len=statsCommands.length; i < len; i++){
         if(message.includes(statsCommands[i])) {
             switch(statsCommands[i]) {
                 case '!viewers':
-                    customApi('https://decapi.me/twitch/viewercount/', 'Viewers (actuels) ► ');
+                    customApi(`https://decapi.me/twitch/viewercount/${channelName}`, 'Viewers (actuels) ► ');
                     break;
                 case '!subs':
-                    customApi('https://decapi.me/twitch/subcount/','ADDTOKENHERE', 'Subs (total) ► ');
+                    if(channelType == 'partner' || channelType == 'affiliate') {
+                        customApi(`https://decapi.me/twitch/subcount/${channelName}`, 'Subs (total) ► ');
+                    } else { reply(`${channelName} n'a pas encore accès aux subs.`); }
                     break;
+                case '!followers':
                 case '!follows':
-                    customApi('','Follows (total) ► ');
+                    customApi(`http://leshopiniacs.ovh/hopollo/streamtool/followerCount/${channelName}`, 'Follows (total) ► ', 'twitch');
                     break;
                 case '!views':
-                    customApi('https://decapi.me/twitch/total_views/', 'Vues (totales) ► ');
+                    customApi(`https://decapi.me/twitch/total_views/${channelName}`, 'Vues (totales) ► ');
                     break;
                 default:
                     log('default');
@@ -247,22 +306,22 @@ function timeout(user) {
 }
 
 // Events
-    // TODO(hopollo) : MOVE THIS PART TO THE PROPER SECTION (OUT OF MESSAGE POST EVENT)
-    // host
-    client.on('hosted', function (channel, username, viewers, autohost) {
-        var viewersLimit = 4;
-        if (viewers < viewersLimit) {
-            send(`HOST : ${username} (${viewers}), bienvenue !`);
-        }
-    });
-    // cheer
-    client.on('cheer', function (channel, userstate, message) {
-        var user = userstate['username'];
-        var bits = userstate.bits;
-        send(`CHEER : ${user} (${bits}), merci !`);
-    });
-    // subs
-    client.on("subscription", function (channel, username, method, message, userstate) {
-        // TOOD(hopollo) : work on this when sub button is enabled
-        send(`SUB : ${user} (${method})`);
-    });
+// TODO(hopollo) : MOVE THIS PART TO THE PROPER SECTION (OUT OF MESSAGE POST EVENT)
+// host
+client.on('hosted', function (channel, username, viewers, autohost) {
+    var viewersLimit = 4;
+    if (viewers < viewersLimit) {
+        send(`HOST : ${username} (${viewers}), bienvenue !`);
+    }
+});
+// cheer
+client.on('cheer', function (channel, userstate, message) {
+    var user = userstate['username'];
+    var bits = userstate.bits;
+    send(`CHEER : ${user} (${bits}), merci !`);
+});
+// subs
+client.on("subscription", function (channel, username, method, message, userstate) {
+    // TOOD(hopollo) : work on this when sub button is enabled
+    send(`SUB : ${user} (${method})`);
+});
