@@ -2,7 +2,7 @@ var dotenv = require('dotenv');
 var tmi = require('tmi.js');
 var fetch = require("node-fetch");
 
-dotenv.load();
+dotenv.config();
 
 var options = {
 	options: {
@@ -61,10 +61,15 @@ client.on('chat', function (channel, userstate, message, self) {
         DisplayName: userstate['display-name'],
         Type:userstate['user-type'],
         Color: userstate['color'],
-        Badges: userstate['badges'],
-        isBroadcaster: () => { userstate['badges'] === 1 }
+        Badges: {
+            value: userstate['badges'],
+            raw: userstate['badges-raw']
+        },
     };
-    
+
+    var isBroadcaster = 'broadcaster/1';
+    var isModerator = 'moderator/1';
+    var isViewer = null;
 
     var blackListedNames = /(^|\W)(hplbot|streamelements|hnlbot|moobot|wizebot)($|\W)/i;
     var debug = true;
@@ -229,35 +234,33 @@ client.on('chat', function (channel, userstate, message, self) {
         switch (command) {
             case '!setgame':
                 log(`${user.DisplayName} just !setgame -> ${args}`);
-                if (user.isMod() || user.isBroadcaster) { 
-                    customApi(`https://api.twitch.tv/helix/games?name=${args}`, `${user.DisplayName} updated the game -> ${args}`, 'twitch');
-                }
                 break;
-                            // TODO(hopollo) : ADD Twitch game depending on their choises
             case '!settitle':
                 log(`${user.DisplayName} just !settitle -> ${args}`);
-                if (user.isBroadcaster) { // ISSUE (hopollo) : user.isMod() not working
+                var newTitle = `${args} - Twitter: @HoPolloTV`;
+                if (user.Badges.raw = isBroadcaster && user.Badges.raw !=isModerator && user.Badges.raw != isViewer) { // ISSUE (hopollo) : user.isMod() not working
                     var url = `https://api.twitch.tv/helix/streams?user_login=${channelName}`;
                     var token = {
-                        headers: { 
-                            'Client-ID': process.env.TWITCH_API_KEY
+                        headers: {
+                            'Client-ID': process.env.TWITCH_CLIENT_ID
                         }
                     };
                     fetch(url, token)
                         .then(res => res.json())
                         .then(data => {
-                            console.log(data);
                             if (data.data.length == 1) {
-                                data.data[0].title = args;
-                                reply(`Title updated => ${args}`);
+                                data.data[0].title = newTitle;
+                                reply(`Title updated => ${newTitle}`);
                             } else {
                                 reply('Title not updated, stream is offline.');
                             }
                         })
                         .catch(err => console.error(err));
+                } else {
+                    log(`!setTitle (denied) from ${user.DisplayName} => ${args}`);
+                    return;
                 }
                 break;
-                            // TODO(hopollo) : ADD editing title to owner only
             case 'addFilter':
                 log(`${user.DisplayName} just !addfilter -> ${args}`);
                 break;
@@ -279,7 +282,7 @@ client.on('chat', function (channel, userstate, message, self) {
             switch(statsCommands[i]) {
                 case '!viewers':
                     customApi(`https://decapi.me/twitch/viewercount/${channelName}`, 'Viewers (actuels) ► ');
-                    break;
+                   break;
                 case '!subs':
                     if(channelType == 'partner' || channelType == 'affiliate') {
                         customApi(`https://decapi.me/twitch/subcount/${channelName}`, 'Subs (total) ► ');
