@@ -237,7 +237,7 @@ client.on('chat', function (channel, userstate, message, self) {
             case '!settitle':
                 log(`${user.DisplayName} just !settitle -> ${args}`);
                 if (user.isBroadcaster) { // ISSUE (hopollo) : user.isMod() not working
-                    var url = `https://api.twitch.tv/helix/streams?user_login=tfue`;
+                    var url = `https://api.twitch.tv/helix/streams?user_login=${channelName}`;
                     var token = {
                         headers: { 
                             'Client-ID': process.env.TWITCH_API_KEY
