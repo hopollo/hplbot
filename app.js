@@ -9,7 +9,7 @@ var options = {
 		debug: true
 	},
 	connection: {
-		cluster: 'aws',
+        cluster: 'aws',
 		reconnect: true
     },
 	identity: {
@@ -25,11 +25,11 @@ client.connect();
 client.on('connected', function (adress, port) {
     this.log.info(`Address : ${adress} : ${port}`);
     this.log.info('Timers started');
-    timer(this.opts.channels);
+    timer(this.opts.channels[0]);
 });
 
 client.on('disconnected', function(reason){
-    this.log.info(this.opts.channels,`Disconnected : ${reason}`);
+    this.log.info(this.opts.channels[0],`Disconnected : ${reason}`);
 });
 
 function timer(channel) {
@@ -82,14 +82,20 @@ client.on('chat', function (channel, userstate, message, self) {
     }
 
     function reply(message) {
-        client.action(channel, `${user} ${message}`);
+        client.action(channel, `${user.DisplayName} ${message}`);
     }
 
     function whisper(message) {
-        client.whisper(`${user} ${message}`);
+        client.whisper(`${user.DisplayName} ${message}`);
     }
 
     function customApi(url, desc, source) {
+        var token = {
+            headers: {
+            'Client-ID' : process.env.TWITCH_API_KEY
+            }
+        };
+
         switch(source) {
             case 'twitch':
                 twitchApiCall(url);
@@ -102,9 +108,7 @@ client.on('chat', function (channel, userstate, message, self) {
             log(`Twitch API Call : ${url}`);
             client.api({
                 url: url,
-                headers: {
-                    'Client-ID': process.env.TWITCH_API_KEY
-                }
+                token
             }, function(err, res, body){
                 if(!err) {
                     var data = body;
@@ -115,7 +119,7 @@ client.on('chat', function (channel, userstate, message, self) {
 
         function defaultApiCall() {
             log(`API Call : ${url}`);
-            fetch(url, options)
+            fetch(url)
             .then(res => res.text())
             .then(data => { send(`${desc} ${data}`); })
             .catch(err => log(err))
@@ -215,7 +219,7 @@ client.on('chat', function (channel, userstate, message, self) {
         for(var i=1, len=message.length; i < len; i++) {
             args.push(message[i]);
         }
-        log(`Edit cmd : ${userDisplayName} (${userRank}) -> ${message[0]}`);
+        log(`Edit cmd : ${user.DisplayName} (${user.Badges}) -> ${message[0]}`);
         var command = message[0];
         editChannelInfo(command, args);
     }
@@ -224,20 +228,42 @@ client.on('chat', function (channel, userstate, message, self) {
         if (args.length == 0) { reply(`la commande ${command} est incomplète`); }
         switch (command) {
             case '!setgame':
-                log(`${userDisplayName} just !setgame -> ${args}`);
+                log(`${user.DisplayName} just !setgame -> ${args}`);
+                if (user.isMod() || user.isBroadcaster) { 
+                    customApi(`https://api.twitch.tv/helix/games?name=${args}`, `${user.DisplayName} updated the game -> ${args}`, 'twitch');
+                }
                 break;
-                            // TODO(hopollo) : ADD editing game to mods and owner
                             // TODO(hopollo) : ADD Twitch game depending on their choises
             case '!settitle':
-                log(`${userDisplayName} just !settitle -> ${args}`);
+                log(`${user.DisplayName} just !settitle -> ${args}`);
+                if (user.isBroadcaster) { // ISSUE (hopollo) : user.isMod() not working
+                    var url = `https://api.twitch.tv/helix/streams?user_login=tfue`;
+                    var token = {
+                        headers: { 
+                            'Client-ID': process.env.TWITCH_API_KEY
+                        }
+                    };
+                    fetch(url, token)
+                        .then(res => res.json())
+                        .then(data => {
+                            console.log(data);
+                            if (data.data.length == 1) {
+                                data.data[0].title = args;
+                                reply(`Title updated => ${args}`);
+                            } else {
+                                reply('Title not updated, stream is offline.');
+                            }
+                        })
+                        .catch(err => console.error(err));
+                }
                 break;
                             // TODO(hopollo) : ADD editing title to owner only
             case 'addFilter':
-                log(`${userDisplayName} just !addfilter -> ${args}`);
+                log(`${user.DisplayName} just !addfilter -> ${args}`);
                 break;
                             // TODO(hopollo) : ADD editing (add) filter to mods and owner
             case 'delfilter':
-                log(`${userDisplayName} just !delfilter -> ${args}`);
+                log(`${user.DisplayName} just !delfilter -> ${args}`);
                 break;
                             // TODO(hopollo) : ADD editing (remove) filter to mods and owner
             
@@ -286,7 +312,7 @@ client.on('chat', function (channel, userstate, message, self) {
 
     const hostCommand = '!host';
     if (message.includes(hostCommand)) {
-        whisper(user, `Pour host HoPollo rdv sur : twitch.tv/${user} et écrire (ou copier/coller) dans ton tchat : /host hopollo`);
+        whisper(user, `Pour host HoPollo rdv sur : twitch.tv/${user.Login} et écrire (ou copier/coller) dans ton tchat : /host hopollo`);
     }
 });
 
