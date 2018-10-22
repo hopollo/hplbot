@@ -1,7 +1,8 @@
 var dotenv = require('dotenv');
-dotenv.load();
 var tmi = require('tmi.js');
 var fetch = require("node-fetch");
+
+dotenv.load();
 
 var options = {
 	options: {
@@ -10,7 +11,7 @@ var options = {
 	connection: {
 		cluster: 'aws',
 		reconnect: true
-	},
+    },
 	identity: {
 		username: 'HoPoBot',
         password: process.env.AUTH_KEY
@@ -19,24 +20,20 @@ var options = {
 };
 
 var client = new tmi.client(options);
-getData();
 client.connect();
 
 client.on('connected', function (adress, port) {
     this.log.info(`Address : ${adress} : ${port}`);
     this.log.info('Timers started');
-    
-    timer();
- 
+    timer(this.opts.channels);
 });
 
 client.on('disconnected', function(reason){
-    client.action('hopollo',`Disconencted : ${reason}`);
+    this.log.info(this.opts.channels,`Disconnected : ${reason}`);
 });
 
-function timer() {
+function timer(channel) {
     function addTimer(command, delay) {
-        var fn = command;
         var delay = delay * 60000;
         setInterval(command, delay);
     }
@@ -52,33 +49,27 @@ function timer() {
     addTimer(song, 20);
 }
 
-function getData() {
-    client.api({
-        url : `https://api.twitch.tv/helix/users?login=hopollo`,
-        headers: {
-            'Client-ID': process.env.TWITCH_CLIENT_ID
-        }
-    }, (err, res, body) => {
-        if (!err) {
-            broadcasterID = body.data[0].id;
-            broadcasterType = body.data[0].broadcaster_type;
-            broadcasterLogin = body.data[0].login;
-            broadcasterDisplayName = body.data[0].display_name;
-        }
-        return;
-    });
-}
-
 client.on('chat', function (channel, userstate, message, self) {
     var channelName = channel.replace('#','');
-    var channelType = broadcasterType;
-    //console.log(userstate);
-    var user = userstate['display-name'];
-    var rank = userstate['badges'];
+    // TODO (hopollo) : find a way to know if the channel type (affiliate | partner | null)
+    var channelID = userstate['room-id'];
+    
+    var user = {
+        Type: userstate['user-type'],
+        Login: userstate['login'],
+        ID: userstate['user-id'],
+        DisplayName: userstate['display-name'],
+        Type:userstate['user-type'],
+        Color: userstate['color'],
+        Badges: userstate['badges'],
+        isBroadcaster: () => { userstate['badges'] === 1 }
+    };
+    
+
     var blackListedNames = /(^|\W)(hplbot|streamelements|hnlbot|moobot|wizebot)($|\W)/i;
     var debug = true;
 
-    if (self || blackListedNames.test(user)) { return;}
+    if (self || blackListedNames.test(user.Login)) { return;}
 
     function log(message) {
         if (debug) {
@@ -99,8 +90,7 @@ client.on('chat', function (channel, userstate, message, self) {
     }
 
     function customApi(url, desc, source) {
-
-        switch(source)  {
+        switch(source) {
             case 'twitch':
                 twitchApiCall(url);
                 break;
@@ -108,18 +98,19 @@ client.on('chat', function (channel, userstate, message, self) {
                 defaultApiCall(url);
         }
 
-        function twitchApiCall() {
+        function twitchApiCall(url) {
             log(`Twitch API Call : ${url}`);
-            var twitchToken = process.env.TWITCH_CLIENT_ID;
-            var options = {
+            client.api({
+                url: url,
                 headers: {
-                    'Client-ID' : twitchToken
+                    'Client-ID': process.env.TWITCH_API_KEY
                 }
-            };
-            fetch(url, options)
-            .then(res => res.text())
-            .then(data => {  send(`${desc} ${data}`); })
-            .catch(err => log(err))
+            }, function(err, res, body){
+                if(!err) {
+                    var data = body;
+                    send(`${desc} ${data}`);
+                }
+            });
         }
 
         function defaultApiCall() {
@@ -130,7 +121,7 @@ client.on('chat', function (channel, userstate, message, self) {
             .catch(err => log(err))
         }
     }
-
+    
     // SONG
     const songKeywords =  /(^|\W)(!song|musique|song|zik|morceaux|titre|artiste|artist)($|\W)/i;
     if (songKeywords.test(message)) {
@@ -173,16 +164,16 @@ client.on('chat', function (channel, userstate, message, self) {
     const clipCommand = '!clip';
     if(message.includes(clipCommand)) {
         var title = message.split(`${clipCommand} `);
-        createClip(title[1], user);
+        createClip(title[1], userDisplayName);
     }
 
     function createClip(title, author) {
         var titleMaxLenght = 100;
-        var template = `${title} (${user})`;
+        var template = `${title} (${userDisplayName})`;
         if(template.length > titleMaxLenght) {
             reply(`Titre de clip trop long ! ${template.length}/100`);
         } else {
-            log(`Clip : ${user} - ${template} (${template.length}/100)`);
+            log(`Clip : ${userDisplayName} - ${template} (${template.length}/100)`);
 
             customApi(`https://api.twitch.tv/helix/clips?broadcaster_id=${channelID}`, '');
         }
@@ -208,21 +199,23 @@ client.on('chat', function (channel, userstate, message, self) {
                 reply(`Merci pour la video !`);
                 break;
             default:
-                timeout(user);
+                if (!user.Badges === null) {
+                    timeout(user, 30);
+                }
+                break;
         }
     }
 
 	// StreamStatus
 	const streamCommand = /(^|\W)(!setgame|!settitle|!addfilter|!delfilter)($|\W)/i;
     if(streamCommand.test(message)){
-        var userRank = userstate['user-type']; // REMARK (hopollo) : return null on broadcaster
         var message = message.split(' ');
         var args = [];
 
         for(var i=1, len=message.length; i < len; i++) {
             args.push(message[i]);
         }
-        log(`Edit cmd : ${user} (${userRank}) -> ${message[0]}`);
+        log(`Edit cmd : ${userDisplayName} (${userRank}) -> ${message[0]}`);
         var command = message[0];
         editChannelInfo(command, args);
     }
@@ -231,20 +224,20 @@ client.on('chat', function (channel, userstate, message, self) {
         if (args.length == 0) { reply(`la commande ${command} est incomplète`); }
         switch (command) {
             case '!setgame':
-                log(`${user} just !setgame -> ${args}`);
+                log(`${userDisplayName} just !setgame -> ${args}`);
                 break;
                             // TODO(hopollo) : ADD editing game to mods and owner
                             // TODO(hopollo) : ADD Twitch game depending on their choises
             case '!settitle':
-                log(`${user} just !settitle -> ${args}`);
+                log(`${userDisplayName} just !settitle -> ${args}`);
                 break;
                             // TODO(hopollo) : ADD editing title to owner only
             case 'addFilter':
-                log(`${user} just !addfilter -> ${args}`);
+                log(`${userDisplayName} just !addfilter -> ${args}`);
                 break;
                             // TODO(hopollo) : ADD editing (add) filter to mods and owner
             case 'delfilter':
-                log(`${user} just !delfilter -> ${args}`);
+                log(`${userDisplayName} just !delfilter -> ${args}`);
                 break;
                             // TODO(hopollo) : ADD editing (remove) filter to mods and owner
             
@@ -298,10 +291,9 @@ client.on('chat', function (channel, userstate, message, self) {
 });
 
 // Timeout and Bans
-function timeout(user) {
+function timeout(user, timer) {
     console.log(`${user} should be timed out for link violation (${message})`);
-    // TODO (hopollo) : ADD mods, owner, sub, follower check to avoid or not timeout
-    client.timeout(channel, user, 30)
+    client.timeout(channel, user, timer)
     reply(`Timeout : ${user} (link violation)`);
 }
 
