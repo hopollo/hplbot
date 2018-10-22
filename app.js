@@ -74,7 +74,7 @@ client.on('chat', function (channel, userstate, message, self) {
     var blackListedNames = /(^|\W)(hplbot|streamelements|hnlbot|moobot|wizebot)($|\W)/i;
     var debug = true;
 
-    if (self || blackListedNames.test(user.Login)) { return;}
+    if (self || blackListedNames.test(user.Login)) { return; }
 
     function log(message) {
         if (debug) {
@@ -147,7 +147,7 @@ client.on('chat', function (channel, userstate, message, self) {
 	// TROLLING
     const trollingKeywords = /(^|\W)(KappaPride|monkaS|LuL|Jebaited|TriHard|CoolStoryBob|cmonBruh|BibleThump|<3|DansGame)($|\W)/i;
     if (trollingKeywords.test(message)) {
-        send(trollingKeywords);
+        send(message);
     }
 	
 	// CONFIG
@@ -189,7 +189,7 @@ client.on('chat', function (channel, userstate, message, self) {
     }
 
     // Link detection
-    const linkWhitelist = ["https://clips.twitch.tv/", "https://www.youtube.com/watch?v="];
+    const linkWhitelist = ["https://clips.twitch.tv/", "https://www.youtube.com/watch?v=", "https://youtu.be/"];
     for (var i = 0, len = linkWhitelist.length; i < len; i++) {
         if (message.includes(linkWhitelist[i])) {
             var source = linkWhitelist.indexOf(linkWhitelist[i]);
@@ -204,6 +204,7 @@ client.on('chat', function (channel, userstate, message, self) {
                 reply(`Merci pour le clip !`);
                 break;
             case 1:
+            case 2:
                 // youtube link
                 reply(`Merci pour la video !`);
                 break;
@@ -283,11 +284,13 @@ client.on('chat', function (channel, userstate, message, self) {
                 case '!viewers':
                     customApi(`https://decapi.me/twitch/viewercount/${channelName}`, 'Viewers (actuels) ► ');
                    break;
-                case '!subs':
+                /*
+                   case '!subs':
                     if(channelType == 'partner' || channelType == 'affiliate') {
                         customApi(`https://decapi.me/twitch/subcount/${channelName}`, 'Subs (total) ► ');
                     } else { reply(`${channelName} n'a pas encore accès aux subs.`); }
                     break;
+                */
                 case '!followers':
                 case '!follows':
                     customApi(`http://leshopiniacs.ovh/hopollo/streamtool/followerCount/${channelName}`, 'Follows (total) ► ', 'twitch');
