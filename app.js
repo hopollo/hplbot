@@ -24,12 +24,14 @@ client.connect();
 
 client.on('connected', function (adress, port) {
     this.log.info(`Address : ${adress} : ${port}`);
-    this.log.info('Timers started');
+    this.log.info(`Timers started on  ${this.opts.channels[0]}`);
     timer(this.opts.channels[0]);
+
+    //REMARK : hardcoding the channel array index to avoid sending my timers to others channels;
 });
 
 client.on('disconnected', function(reason){
-    this.log.info(this.opts.channels[0],`Disconnected : ${reason}`);
+    this.log.info(this.opts.channels,`Disconnected : ${reason}`);
 });
 
 function timer(channel) {
@@ -50,10 +52,28 @@ function timer(channel) {
 }
 
 client.on('chat', function (channel, userstate, message, self) {
-    var channelName = channel.replace('#','');
     // TODO (hopollo) : find a way to know if the channel type (affiliate | partner | null)
-    var channelID = userstate['room-id'];
-    
+    var room = {
+        channelName: function() { var deash = channel.replace('#',''); return deash; },
+        channelID: userstate['room-id'],
+        /*
+        channelType: function() {
+            var url = `https://api.twitch.tv/helix/users?login=${this.channelName()}`;
+            var options = {
+                headers: {
+                    'Client-ID' : process.env.TWITCH_CLIENT_ID
+                }
+            };
+            return fetch(url, options)
+                .then(res => res.json())
+                .then(data => { return data.data[0].broadcaster_type; })
+                .catch(err => log(`Error : ${err}`))
+        },
+        */
+
+        toString() { return this.channelName(); }
+    }
+
     var user = {
         Type: userstate['user-type'],
         Login: userstate['login'],
@@ -65,6 +85,8 @@ client.on('chat', function (channel, userstate, message, self) {
             value: userstate['badges'],
             raw: userstate['badges-raw']
         },
+
+        toString() { return this.DisplayName; }
     };
 
     var isBroadcaster = 'broadcaster/1';
@@ -134,8 +156,8 @@ client.on('chat', function (channel, userstate, message, self) {
     // SONG
     const songKeywords =  /(^|\W)(!song|musique|song|zik|morceaux|titre|artiste|artist)($|\W)/i;
     if (songKeywords.test(message)) {
-        log(`Matching word/cmd : ${songKeywords}`);
-        customApi(`https://4head.xyz/lastfm/?name=${channelName}`, 'Musique actuelle ► ');
+        log(`Matching word/cmd : ${message}`);
+        customApi(`https://4head.xyz/lastfm/?name=${room.toString()}`, 'Musique actuelle ► ');
     }
 
     // SALUTATION
@@ -147,6 +169,7 @@ client.on('chat', function (channel, userstate, message, self) {
 	// TROLLING
     const trollingKeywords = /(^|\W)(KappaPride|monkaS|LuL|Jebaited|TriHard|CoolStoryBob|cmonBruh|BibleThump|<3|DansGame)($|\W)/i;
     if (trollingKeywords.test(message)) {
+        log(`Matching emote : ${message}`);
         send(message);
     }
 	
@@ -184,7 +207,7 @@ client.on('chat', function (channel, userstate, message, self) {
         } else {
             log(`Clip : ${userDisplayName} - ${template} (${template.length}/100)`);
 
-            customApi(`https://api.twitch.tv/helix/clips?broadcaster_id=${channelID}`, '');
+            customApi(`https://api.twitch.tv/helix/clips?broadcaster_id=${room.ID}`, '');
         }
     }
 
@@ -240,7 +263,7 @@ client.on('chat', function (channel, userstate, message, self) {
                 log(`${user.DisplayName} just !settitle -> ${args}`);
                 var newTitle = `${args} - Twitter: @HoPolloTV`;
                 if (user.Badges.raw = isBroadcaster && user.Badges.raw !=isModerator && user.Badges.raw != isViewer) { // ISSUE (hopollo) : user.isMod() not working
-                    var url = `https://api.twitch.tv/helix/streams?user_login=${channelName}`;
+                    var url = `https://api.twitch.tv/helix/streams?user_login=${room.toString()}`;
                     var token = {
                         headers: {
                             'Client-ID': process.env.TWITCH_CLIENT_ID
@@ -272,7 +295,7 @@ client.on('chat', function (channel, userstate, message, self) {
                             // TODO(hopollo) : ADD editing (remove) filter to mods and owner
             
             default:
-                log('Default EditChannelInfo');
+                return;
         }
     }
 
@@ -282,24 +305,24 @@ client.on('chat', function (channel, userstate, message, self) {
         if(message.includes(statsCommands[i])) {
             switch(statsCommands[i]) {
                 case '!viewers':
-                    customApi(`https://decapi.me/twitch/viewercount/${channelName}`, 'Viewers (actuels) ► ');
+                    customApi(`https://decapi.me/twitch/viewercount/${room.toString()}`, 'Viewers (actuels) ► ');
                    break;
                 /*
                    case '!subs':
-                    if(channelType == 'partner' || channelType == 'affiliate') {
-                        customApi(`https://decapi.me/twitch/subcount/${channelName}`, 'Subs (total) ► ');
-                    } else { reply(`${channelName} n'a pas encore accès aux subs.`); }
+                    if(room.channelType().then(res => {return res;}) == 'partner' || room.channelType().then(res => {return res;}) == 'affiliate') {
+                        customApi(`https://decapi.me/twitch/subcount/tfue`, 'Subs (total) ► ');
+                    } else { reply(`${room.channelName()} n'a pas encore accès aux subs.`); }
                     break;
                 */
                 case '!followers':
                 case '!follows':
-                    customApi(`http://leshopiniacs.ovh/hopollo/streamtool/followerCount/${channelName}`, 'Follows (total) ► ', 'twitch');
+                    customApi(`http://leshopiniacs.ovh/hopollo/streamtool/followerCount/${room.toString()}`, 'Follows (total) ► ', 'twitch');
                     break;
                 case '!views':
-                    customApi(`https://decapi.me/twitch/total_views/${channelName}`, 'Vues (totales) ► ');
+                    customApi(`https://decapi.me/twitch/total_views/${room.toString()}`, 'Vues (totales) ► ');
                     break;
                 default:
-                    log('default');
+                    return;
             }
         }
     }
@@ -307,7 +330,7 @@ client.on('chat', function (channel, userstate, message, self) {
 	// Socials
     const socialKeywords = /(^|\W)(!social|!facebook|!twitter|!youtube|facebook|twitter)($|\W)/i;
     if (socialKeywords.test(message)) {
-        log(`Matching word/cmd ${socialKeywords}`);
+        log(`Matching word/cmd ${message}`);
         send('Retrouvez moi sur les réseaux ► https://www.twitter.com/HoPolloTV • https://www.youtube.com/HoPollo (!last) • https://www.facebook.com/HoPollo •');
     }
 
@@ -318,7 +341,7 @@ client.on('chat', function (channel, userstate, message, self) {
 
     const hostCommand = '!host';
     if (message.includes(hostCommand)) {
-        whisper(user, `Pour host HoPollo rdv sur : twitch.tv/${user.Login} et écrire (ou copier/coller) dans ton tchat : /host hopollo`);
+        whisper(user.Login, `Pour host HoPollo rdv sur : twitch.tv/${user.Login} et écrire (ou copier/coller) dans ton tchat : /host hopollo`);
     }
 });
 
